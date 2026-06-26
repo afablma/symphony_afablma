@@ -1,0 +1,79 @@
+name: Hello World
+run-name: "Hello World — @${{ github.actor }}"
+
+# Symphony hello-world example: install Copilot CLI → verify prerequisites →
+# run a single copilot invocation that greets the world.
+#
+# Authentication relies on org-level Copilot billing via the built-in GITHUB_TOKEN
+# (automatically available on every Actions runner). A custom COPILOT_TOKEN
+# secret may also be supplied to override the default.
+#
+# Triggers:
+#   workflow_call    — invoked by caller-stub workflows in consumer repos
+#                      (see manifest/workflow-stubs/hello-world.yml).
+#   workflow_dispatch — manual trigger from the GitHub UI or `gh workflow run`,
+#                      for in-repo smoke tests.
+
+on:
+  workflow_call:
+    inputs:
+      greeting-name:
+        description: Name to include in the greeting (leave blank to greet "the world").
+        required: false
+        type: string
+        default: "the world"
+    secrets:
+      COPILOT_TOKEN:
+        required: false
+        description: Fine-grained PAT with Copilot Requests permission. Optional; falls back to org-level Copilot billing via GITHUB_TOKEN.
+  workflow_dispatch:
+    inputs:
+      greeting-name:
+        description: Name to include in the greeting (leave blank to greet "the world").
+        required: false
+        default: "the world"
+
+permissions:
+  contents: read
+  copilot-requests: write
+
+jobs:
+  hello-world:
+    name: Hello World
+    runs-on: [self-hosted, x64, provisioning-essentials, ubuntu-22.04]
+
+    env:
+      GH_TOKEN: ${{ secrets.COPILOT_TOKEN || github.token }}
+      # The Copilot CLI requires a real user PAT with the "Copilot Requests"
+      # permission. The workflow's built-in GITHUB_TOKEN cannot drive the CLI
+      # (it fails silently with exit 1), so consumer repos must configure a
+      # COPILOT_TOKEN secret. The check-copilot-auth step below verifies this
+      # before any Copilot invocation runs.
+      COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_TOKEN }}
+
+    steps:
+      - name: checkout
+        id: checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - name: install-copilot-cli
+        id: install-copilot-cli
+        uses: manulife-innersource/symphony/.github/actions/install-copilot-cli@main
+
+      - name: check-gh-cli-version
+        id: check-gh-cli-version
+        uses: manulife-innersource/symphony/.github/actions/check-gh-cli-version@main
+
+      - name: check-copilot-cli-version
+        id: check-copilot-cli-version
+        uses: manulife-innersource/symphony/.github/actions/check-copilot-cli-version@main
+
+      - name: check-copilot-auth
+        id: check-copilot-auth
+        uses: manulife-innersource/symphony/.github/actions/check-copilot-auth@main
+
+      - name: hello-world
+        id: hello-world
+        uses: manulife-innersource/symphony/.github/actions/hello-world@main
+        with:
+          greeting-name: ${{ inputs.greeting-name }}
